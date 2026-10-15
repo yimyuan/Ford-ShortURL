@@ -1,0 +1,27 @@
+{
+  "name": "short-url",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node scripts/ford.js run",
+    "build": "npm run build -w frontend",
+    "start": "npm run start -w backend",
+    "check:connections": "npm run check:connections -w backend",
+    "ford": "node scripts/ford.js",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "test:cli": "node --test scripts/ford.test.js",
+    "setup:admin": "npm run setup:admin -w backend"
+  },
+  "bin": {
+    "ford": "./scripts/ford.js"
+  }
+}
