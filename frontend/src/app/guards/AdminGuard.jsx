@@ -70,7 +70,7 @@ export default function AdminGuard({ children }) {
               {busy ? 'กำลังออกจากระบบ…' : 'เข้าสู่ระบบด้วยบัญชีอื่น'}
             </Button>
           )}
-          <Button variant="outline" href="/">
+          <Button variant="outline" href="#/">
             กลับหน้าเว็บไซต์
           </Button>
         </div>

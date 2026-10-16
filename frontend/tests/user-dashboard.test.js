@@ -30,11 +30,11 @@ const sample = {
 };
 
 test('user dashboard has a separate route and validates complete ordered Thai-day aggregates', async (t) => {
-  assert.equal(paths.dashboard, '/dashboard');
+  assert.equal(paths.dashboard, '#/dashboard');
   assert.equal(getRoute('/dashboard/'), 'dashboard');
   t.mock.method(globalThis, 'fetch', async (path, options) => {
     assert.equal(path, '/api/dashboard');
-    assert.equal(options.credentials, 'include');
+    assert.equal(options.credentials, 'omit');
     return new Response(JSON.stringify(sample), {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -68,7 +68,7 @@ test('user overview renders true totals, missing-history labels, top links and l
     assert.match(ready, /9,007,199,254,740,993/);
     assert.match(ready, /ยังไม่ได้เก็บข้อมูล/);
     assert.match(ready, /sale-code/);
-    assert.match(ready, /href="\/my-links"/);
+    assert.match(ready, /href="#\/my-links"/);
     assert.match(ready, /ยอดเปิดลิงก์ย้อนหลัง 7 วัน/);
     assert.ok(!ready.includes('NaN'));
     const empty = render({

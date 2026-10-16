@@ -114,13 +114,9 @@ test('temporary-password sessions cannot call normal or administrative APIs', as
     ['/api/auth', '/change-password', false],
   ]) {
     let result;
-    await middleware(
-      { cookies: { shorturl_access: 'token' }, get: () => '', baseUrl, path },
-      {},
-      (error) => {
-        result = error;
-      },
-    );
+    await middleware({ get: () => 'Bearer token', baseUrl, path }, {}, (error) => {
+      result = error;
+    });
     assert.equal(result?.code, blocked ? 'PASSWORD_CHANGE_REQUIRED' : undefined);
   }
 });

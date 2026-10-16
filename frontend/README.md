@@ -19,11 +19,11 @@ Vite เปิด http://127.0.0.1:5173 และ proxy /api, /r ไป http://1
 
 | Path | การใช้งาน |
 | --- | --- |
-| / | หน้าแรก กรอก URL และสร้างลิงก์ |
-| /user | Alias หน้าแรก |
-| /my-links | รายการและจัดการลิงก์ผู้ใช้ |
-| /dashboard | ภาพรวมผู้ใช้ กราฟ 7 วัน Top 5 |
-| /admin | Admin overview/users/owner links/history |
+| #/ | หน้าแรก กรอก URL และสร้างลิงก์ |
+| #/user | Alias หน้าแรก |
+| #/my-links | รายการและจัดการลิงก์ผู้ใช้ |
+| #/dashboard | ภาพรวมผู้ใช้ กราฟ 7 วัน Top 5 |
+| #/admin | Admin overview/users/owner links/history |
 
 เมนูผู้ใช้เรียง **หน้าแรก → ลิงก์ของฉัน → ภาพรวม** UserLayout ใช้ร่วมกันในหน้า User; AdminLayout/guards แยกต่างหาก Admin ไป /admin ผู้ใช้ทั่วไปไม่มีสิทธิ์เปิด Admin
 
@@ -74,7 +74,7 @@ src/
     dashboard/            Aggregate API, chart data, Recharts UI
     admin/                APIs, views, actions, audit
   shared/
-    api/                  Cookies/JSON/Blob, refresh, timeout, pagination
+    api/                  Bearer/JSON/Blob, expiry, timeout, pagination
     ui/                   Button, Input, Modal, Icon, Card, Pagination, DonutChart
     hooks/                Scroll reveal, reduced motion
     components/           PageShell
@@ -87,6 +87,10 @@ Page → Hook → feature API → shared client → Backend สี/ฟอนต�
 
 Runtime: react, react-dom, recharts ส่วน development ใช้ vite, @vitejs/plugin-react, tailwindcss, @tailwindcss/vite; **qrcode/pngjs อยู่ Backend** ไม่ต้องลง Frontend เวอร์ชันติดตั้งจริงอยู่ root package-lock.json เมื่อ Clone ใช้ npm ci
 
-Node tests ตรวจ API contracts, refresh, pagination, QR settings, chart precision, rendering, modal lifecycle บางชุดใช้ Vite SSR ไม่ใช่ browser end-to-end test
+Node tests ตรวจ API contracts, bearer expiry, pagination, QR settings, chart precision, rendering, modal lifecycle บางชุดใช้ Vite SSR ไม่ใช่ browser end-to-end test
 
-Build อยู่ frontend/dist/ ต้องตั้ง SPA fallback และ proxy /api, /r ไป Backend ภายใต้ HTTPS origin เดียว ตรวจ responsive, cookie, clipboard/download และ QR บน browser/อุปกรณ์จริงเพิ่มเติม DFD/ERD ยังเป็นฉบับก่อนฟีเจอร์ล่าสุด
+Build อยู่ frontend/dist/ ตั้ง VITE_BASE_PATH=/Ford-ShortURL/ และ VITE_API_ORIGIN เป็น Render Origin ใช้ Hash Routing ไม่ต้อง SPA fallback/proxy ดูคู่มือ ../docs/DEPLOY.md ตรวจ responsive, CORS, Token expiry, clipboard/download และ QR บนอุปกรณ์จริงเพิ่มเติม DFD/ERD ยังเป็นฉบับก่อนฟีเจอร์ล่าสุด
+
+## GitHub Pages และ Login
+
+ใช้ Hash Routing เช่น /Ford-ShortURL/#/my-links เมนูไม่ Reload หน้า Access Token อยู่ในหน่วยความจำเท่านั้น ไม่มี Cookie หรือ Refresh Token รีเฟรช/ปิดแท็บหรือหมดอายุ 15 นาที (ค่าเริ่มต้น) ต้อง Login ใหม่ Supabase/Redis Secret ไม่อยู่ใน VITE_* ตั้งเฉพาะ Public VITE_API_ORIGIN และ VITE_BASE_PATH ดู frontend/.env.example

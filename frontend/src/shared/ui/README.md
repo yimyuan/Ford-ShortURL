@@ -31,7 +31,7 @@ import { Button, Input, Card, CardTitle, CardDescription, Modal, Icon } from '..
 
 <Button type="submit">บันทึก <Icon name="arrow" /></Button>
 <Button variant="outline" onClick={cancel}>ยกเลิก</Button>
-<Button href="/">กลับหน้าแรก</Button>
+<Button href="#/">กลับหน้าแรก</Button>
 <Button disabled>กำลังบันทึก</Button>
 
 <label htmlFor="email">อีเมล</label>
@@ -58,7 +58,7 @@ Tailwind classes ต้องเขียนเต็มเป็น static stri
 
 ## ขอบเขต
 
-หน้าแรก Auth dialog, Admin Dashboard และ 404 ใช้ Component กลางแล้ว Auth เชื่อม API ด้วย HttpOnly cookies ผ่าน AuthProvider และ apiRequest โดยไม่เก็บ token ใน browser storage ฟีเจอร์สร้างลิงก์และประวัติเรียกผ่าน API/Hook ใน features/links
+หน้าแรก Auth dialog, Admin Dashboard และ 404 ใช้ Component กลางแล้ว Auth เชื่อม API ด้วย Bearer Token ในหน่วยความจำ ผ่าน AuthProvider และ apiRequest โดยไม่เก็บ token ใน browser storage ฟีเจอร์สร้างลิงก์และประวัติเรียกผ่าน API/Hook ใน features/links
 
 อ้างอิง: https://tailwindcss.com/docs/installation/using-vite
 

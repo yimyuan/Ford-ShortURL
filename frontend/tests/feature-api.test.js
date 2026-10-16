@@ -1,3 +1,4 @@
+import { setAccessToken, clearAccessToken } from '../src/shared/api/session.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { authenticateUser, getCurrentUser } from '../src/features/auth/api.js';
@@ -26,14 +27,24 @@ test('custom names preserve case, reach the create API and keep duplicate-name e
   }
   t.mock.method(globalThis, 'fetch', async (path, options) => {
     assert.equal(path, '/api/links');
-    assert.deepEqual(JSON.parse(options.body), { originalUrl: link.originalUrl, customCode: 'Summer-sale' });
-    return json({ ...link, shortCode: 'Summer-sale', shortUrl: 'https://short.example/r/Summer-sale' });
+    assert.deepEqual(JSON.parse(options.body), {
+      originalUrl: link.originalUrl,
+      customCode: 'Summer-sale',
+    });
+    return json({
+      ...link,
+      shortCode: 'Summer-sale',
+      shortUrl: 'https://short.example/r/Summer-sale',
+    });
   });
-  assert.equal((await createLink(link.originalUrl, validateCustomCode(' Summer-sale '))).shortCode, 'Summer-sale');
+  assert.equal(
+    (await createLink(link.originalUrl, validateCustomCode(' Summer-sale '))).shortCode,
+    'Summer-sale',
+  );
   assert.match(linkErrorMessage({ status: 409, code: 'CUSTOM_CODE_TAKEN' }), /เลือกชื่ออื่น/);
 });
 
-test('feature APIs share cookie transport and retain link, history and QR response contracts', async (t) => {
+test('feature APIs share bearer transport and retain link, history and QR response contracts', async (t) => {
   const calls = [];
   t.mock.method(globalThis, 'fetch', async (path, options) => {
     calls.push({ path, options });
@@ -48,10 +59,12 @@ test('feature APIs share cookie transport and retain link, history and QR respon
   assert.equal((await listLinks(2)).items[0].clickCount, '9007199254740993');
   assert.equal(calls[1].path, '/api/links?page=2');
   assert.equal(await (await getLinkQr('link-id')).text(), '<svg/>');
-  assert.ok(calls.every((call) => call.options.credentials === 'include'));
+  assert.ok(calls.every((call) => call.options.credentials === 'omit'));
 });
 
 test('invalid service responses fail before reaching UI components', async (t) => {
+  setAccessToken('fixture', Math.floor(Date.now() / 1000) + 60);
+  t.after(clearAccessToken);
   t.mock.method(globalThis, 'fetch', async () =>
     json({ items: [{}], total: 1, page: 1, pageSize: 10 }),
   );
@@ -70,7 +83,11 @@ test('auth API normalizes HTTP shape while preserving account role from the veri
       email: 'admin@example.com',
       password: 'test-password',
     });
-    return json({ user: { id: 'a', email: 'admin@example.com', role: 'admin', isActive: true } });
+    return json({
+      user: { id: 'a', email: 'admin@example.com', role: 'admin', isActive: true },
+      accessToken: 'access',
+      expiresAt: Math.floor(Date.now() / 1000) + 60,
+    });
   });
   assert.equal(
     (await authenticateUser('login', { email: 'admin@example.com', password: 'test-password' }))

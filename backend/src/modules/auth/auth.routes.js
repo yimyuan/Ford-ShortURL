@@ -28,5 +28,10 @@ authRouter.post(
   validate(parseCredentials),
   handler.login,
 );
-authRouter.post('/refresh', protectAuthWrite, createAuthRateLimit('refresh'), handler.refresh);
-authRouter.post('/logout', protectAuthWrite, createAuthRateLimit('logout'), handler.logout);
+authRouter.post(
+  '/logout',
+  authenticate,
+  protectAuthWrite,
+  createAuthRateLimit('logout'),
+  handler.logout,
+);

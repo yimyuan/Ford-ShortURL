@@ -39,7 +39,7 @@ test('owner navigation and link actions use the admin owner scope, ten-row contr
   assert.equal(calls[3].options.method, 'PATCH');
   assert.deepEqual(JSON.parse(calls[3].options.body), body);
   assert.equal(calls[4].path, '/api/admin/link-owners/owner/links/link/qr');
-  assert.ok(calls.every((call) => call.options.credentials === 'include'));
+  assert.ok(calls.every((call) => call.options.credentials === 'omit'));
 });
 test('link history identifies the exact link whose status changed or was deleted', () => {
   assert.equal(

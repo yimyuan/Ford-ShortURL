@@ -4,13 +4,8 @@ function integer(name, fallback, min, max) {
     throw new Error('Invalid configuration: ' + name);
   return value;
 }
-const proxyMode =
-  process.env.PROXY_MODE || (process.env.NODE_ENV === 'production' ? 'netlify' : 'direct');
-if (!['direct', 'netlify'].includes(proxyMode))
-  throw new Error('Invalid configuration: PROXY_MODE');
 export const config = Object.freeze({
-  proxyMode,
-  proxySecret: process.env.PROXY_SECRET || '',
+  trustProxyHops: integer('TRUST_PROXY_HOPS', 0, 0, 5),
   host: process.env.HOST || '127.0.0.1',
   port: integer('PORT', 3000, 1, 65535),
   supabaseUrl: process.env.SUPABASE_URL || '',
@@ -24,5 +19,4 @@ export const config = Object.freeze({
   jwtIssuer: process.env.JWT_ISSUER || 'short-url-api',
   jwtAudience: process.env.JWT_AUDIENCE || 'short-url-web',
   accessTokenTtl: integer('ACCESS_TOKEN_TTL_SECONDS', 900, 60, 3600),
-  refreshTokenTtl: integer('REFRESH_TOKEN_TTL_SECONDS', 604800, 300, 2592000),
 });

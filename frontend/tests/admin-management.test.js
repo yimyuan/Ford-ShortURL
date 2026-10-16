@@ -7,7 +7,10 @@ test('management API sends explicit confirmation and conflict revision; history 
   const original = globalThis.fetch;
   globalThis.fetch = async (path, options) => {
     calls.push({ path, options });
-    return new Response(JSON.stringify({ auditId: 'id', items: [], total: 0, page: 2, pageSize: 10 }), { status: 200 });
+    return new Response(
+      JSON.stringify({ auditId: 'id', items: [], total: 0, page: 2, pageSize: 10 }),
+      { status: 200 },
+    );
   };
   try {
     const body = {
@@ -29,7 +32,7 @@ test('management API sends explicit confirmation and conflict revision; history 
     assert.equal(calls[0].path, '/api/admin/users/user-id/impact');
     assert.equal(calls[1].options.method, 'PATCH');
     assert.deepEqual(JSON.parse(calls[1].options.body), body);
-    assert.equal(calls[1].options.credentials, 'include');
+    assert.equal(calls[1].options.credentials, 'omit');
     const params = new URL(calls[2].path, 'https://example.com').searchParams;
     assert.equal(params.get('query'), 'user+test@example.com');
     assert.equal(params.get('page'), '2');
