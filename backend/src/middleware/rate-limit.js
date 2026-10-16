@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { config } from '../config.js';
 import { getRedis } from '../infrastructure/redis.js';
 import { withRedisDeadline } from '../infrastructure/deadline.js';
+import { logRedisFailure } from '../infrastructure/redis-diagnostics.js';
 // The injected limiter must use atomic Redis operations with a bounded expiry.
 export function createRateLimitMiddleware(consume) {
   return async (req, _res, next) => {
@@ -54,7 +55,8 @@ export function createAuthRateLimit(action, { connect = getRedis, settings = con
         },
         2500,
       );
-    } catch {
+    } catch (error) {
+      logRedisFailure('auth-rate-limit', error);
       throw new AppError(503, 'RATE_LIMIT_UNAVAILABLE', 'Request limiting is unavailable');
     }
   });
@@ -81,7 +83,8 @@ export function createLinkRateLimit({ connect = getRedis } = {}) {
         },
         2500,
       );
-    } catch {
+    } catch (error) {
+      logRedisFailure('link-rate-limit', error);
       throw new AppError(503, 'RATE_LIMIT_UNAVAILABLE', 'Request limiting is unavailable');
     }
   });
