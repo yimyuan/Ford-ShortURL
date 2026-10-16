@@ -165,7 +165,7 @@ test('cookie writes reject foreign/missing Origin, form submissions and invalid 
 
 test('Redis rate limiter hashes identifiers and fails closed on storage errors', async () => {
  let query;
- const limit = createAuthRateLimit('login', { settings, connect: async () => ({ eval: async (script, args) => { query = { script, ...args }; return 0; } }) });
+ const limit = createAuthRateLimit('login', { settings, connect: async () => ({ withCommandOptions() { return this; }, eval: async (script, args) => { query = { script, ...args }; return 0; } }) });
  const req = { ip: '192.0.2.1', body: { email: 'private@example.com' } };
  assert.equal((await middlewareError(limit, req)).status, 429);
  assert.equal(JSON.stringify(query).includes(req.ip), false);

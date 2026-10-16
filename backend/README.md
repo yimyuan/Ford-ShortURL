@@ -41,7 +41,7 @@ npm start เปิดเฉพาะ Backend ใช้ backend/.env ในเ�
 
 ## Database migrations
 
-ฐานข้อมูลใหม่รัน SQL Editor ตามลำดับ **001–016** หากมี migration แล้วไม่รันไฟล์เดิมซ้ำ CLI ไม่ migrate ให้อัตโนมัติ
+ฐานข้อมูลใหม่รัน SQL Editor ตามลำดับ **001–019** หากมี migration แล้วไม่รันไฟล์เดิมซ้ำ CLI ไม่ migrate ให้อัตโนมัติ Backend รุ่นนี้ต้องมี 017 ก่อนสร้างลิงก์ และ 018–019 เพื่อยกเลิกและลบระบบล้างประวัติ
 
 | ไฟล์ | หน้าที่ |
 | --- | --- |
@@ -61,10 +61,21 @@ npm start เปิดเฉพาะ Backend ใช้ backend/.env ในเ�
 | 014_qr_dot_shapes.sql | square/rounded/dots; แบบเดิมเป็น square |
 | 015_user_dashboard.sql | ยอดรายวันเวลาไทยและ aggregate ผู้ใช้ |
 | 016_user_link_filters.sql | ค้นหา กรอง เรียง แบ่งหน้าครั้งละ 10 |
+| 017_link_creation_safety.sql | สงวนชื่อถาวร, Idempotency และตรวจสถานะบัญชีใน Transaction สร้างลิงก์ |
+| 018_keep_admin_audit_history.sql | ยกเลิก Cron ลบประวัติและเปลี่ยน prune เป็น no-op เก็บ Audit Log ไม่จำกัดอายุ |
+| 019_remove_unused_audit_cleanup.sql | ลบฟังก์ชันล้างประวัติที่ไม่ใช้งาน โดยเก็บข้อมูล Audit ไว้ |
 
 003 ตั้ง authenticator.pgrst.db_schemas ซึ่ง override Dashboard Exposed schemas ถ้าเพิ่ม schema ต้องปรับรายการนี้หรือคืนให้ Dashboard ควบคุม 010 ต้องมีสิทธิ์ติดตั้ง pg_cron
 
-ตารางปัจจุบัน: app.users, app.links, app.admin_audit_logs, app.analytics_state, app.link_click_daily ทุกตารางเปิด RLS แต่สิทธิ์ service role/RPC ต่างกันตาม migration ห้ามส่งคีย์ Backend ให้ browser
+ตารางปัจจุบัน: app.users, app.links, app.admin_audit_logs, app.analytics_state, app.link_click_daily, app.short_code_reservations, app.link_creation_requests ทุกตารางเปิด RLS แต่สิทธิ์ service role/RPC ต่างกันตาม migration ห้ามส่งคีย์ Backend ให้ browser
+
+POST /api/links ต้องส่ง `Idempotency-Key` แบบ UUID v4 นอกเหนือจาก JSON เดิม `{originalUrl, customCode?}` ใช้ Key เดิมเมื่อ Retry Payload เดิม จะได้ลิงก์เดิมแม้ Response ครั้งแรกหาย เปลี่ยน Payload ด้วย Key เดิมหรือ Replay ลิงก์ที่ลบแล้วได้ 409
+
+ชื่อที่ลบยังอยู่ใน short_code_reservations แม้ลบบัญชี เจ้าของเดิมจึงไม่ถูกสวมปลายทางผ่าน QR เก่า ตารางนี้เก็บเฉพาะชื่อ ไม่มีข้อมูลผู้ใช้ Request Fingerprint เก็บ SHA-256 ไม่เก็บ URL ซ้ำ รายละเอียด/ข้อจำกัดย้อนหลังอยู่ใน [คู่มือ Deploy](../docs/DEPLOY.md)
+
+Redis Cache มี Deadline 150ms ต่อ Operation; Session/Rate Limit มี Deadline 2500ms และ Socket Timeout 2000ms Cache ล้มเหลวกลับไป DB ส่วน Auth/Rate Limit คืน 503 ไม่ข้ามการตรวจสิทธิ์
+
+Production บน Netlify/Render ใช้ PROXY_MODE=netlify และ PROXY_SECRET เดียวกันทั้งสองฝั่ง เพื่อให้ IP มาจาก Netlify Edge ที่ยืนยันได้ ไม่เชื่อ X-Forwarded-For จาก Browser
 
 ## Authentication
 
@@ -129,7 +140,7 @@ GET QR รองรับ query dark/light/size/shape/format=png|svg ถ้า�
 
 สีเป็น opaque hex 6 หลัก ขนาด 256/512/1024 รูปแบบ square/rounded/dots ไม่มี logo/image upload สงวน finder/timing/alignment/format/version modules เป็นสี่เหลี่ยมและคง quiet zone 4 modules สีเลือกอิสระ ต้องลองสแกนก่อนใช้จริง
 
-Cron shorturl-admin-audit-retention เรียก app.prune_admin_audit_logs() ทุกชั่วโมง เก็บย้อนหลัง 1 เดือนตามปฏิทินเวลาไทย ลบเฉพาะ Admin Audit Log เก่ากว่าขอบเขต ไม่ลบ users/links และไม่ต้องเปิด Backend ค้างไว้
+Migration 018 ยกเลิก Cron shorturl-admin-audit-retention และ Migration 019 ลบฟังก์ชัน app.prune_admin_audit_logs() ออก เก็บ Admin Audit Log ไม่จำกัดอายุเพื่อใช้ตรวจสอบความปลอดภัย ประวัติที่ถูกลบไปแล้วก่อนหน้านี้ไม่สามารถกู้กลับด้วย Migration นี้
 
 ## ข้อจำกัด
 

@@ -26,13 +26,24 @@ export function createLinksRepository(supabase) {
       if (error) throw databaseError();
       return data;
     },
-    async create({ userId, shortCode, originalUrl }) {
+    async create({ userId, shortCode, originalUrl, requestId, requestHash }) {
       const { data, error } = await supabase
-        .from('links')
-        .insert({ user_id: userId, short_code: shortCode, original_url: originalUrl })
-        .select(columns)
-        .single()
+        .rpc('create_short_link', {
+          p_actor: userId,
+          p_code: shortCode,
+          p_url: originalUrl,
+          p_request_id: requestId,
+          p_request_hash: requestHash,
+        })
         .abortSignal(AbortSignal.timeout(5000));
+      if (error?.message === 'LINK_CREATE_FORBIDDEN')
+        throw new AppError(403, 'LINK_CREATE_FORBIDDEN', 'This account cannot create links');
+      if (['IDEMPOTENCY_CONFLICT', 'REQUEST_LINK_DELETED'].includes(error?.message))
+        throw new AppError(
+          409,
+          error.message,
+          'Creation request has changed or its link was deleted',
+        );
       if (error?.code === '23505')
         throw new AppError(409, 'SHORT_CODE_COLLISION', 'Short code already exists');
       if (error) throw databaseError();

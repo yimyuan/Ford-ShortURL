@@ -1,9 +1,14 @@
 import { apiRequest } from '../../shared/api/client.js';
 import { readHistory, readLink } from './validation.js';
-export async function createLink(originalUrl, customCode = '') {
+export async function createLink(
+  originalUrl,
+  customCode = '',
+  requestId = globalThis.crypto.randomUUID(),
+) {
   return readLink(
     await apiRequest('/api/links', {
       method: 'POST',
+      headers: { 'Idempotency-Key': requestId },
       body: { originalUrl, ...(customCode ? { customCode } : {}) },
     }),
   );

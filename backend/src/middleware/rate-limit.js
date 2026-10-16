@@ -2,6 +2,7 @@ import { AppError } from '../errors/app-error.js';
 import { createHmac } from 'node:crypto';
 import { config } from '../config.js';
 import { getRedis } from '../infrastructure/redis.js';
+import { withRedisDeadline } from '../infrastructure/deadline.js';
 // The injected limiter must use atomic Redis operations with a bounded expiry.
 export function createRateLimitMiddleware(consume) {
   return async (req, _res, next) => {
@@ -40,15 +41,22 @@ export function createAuthRateLimit(action, { connect = getRedis, settings = con
     if (Buffer.byteLength(settings.csrfSecret || '') < 32)
       throw new AppError(503, 'RATE_LIMIT_NOT_READY', 'Request limiting is not configured');
     const digest = (value) => createHmac('sha256', settings.csrfSecret).update(value).digest('hex');
-    const keys = [`shorturl:limit:${action}:ip:${digest(String(req.ip || 'unknown'))}`];
+    const keys = [
+      `shorturl:limit:${action}:ip:${digest(String(req.clientIp || req.ip || 'unknown'))}`,
+    ];
     const arguments_ = [String(selected[0]), String(selected[1])];
     if (action === 'login') {
       keys.push(`shorturl:limit:login:email:${digest(resolvedEmail(req))}`);
       arguments_.push(String(selected[2]));
     }
     try {
-      const client = await connect();
-      return Number(await client.eval(consumeScript, { keys, arguments: arguments_ })) === 1;
+      return await withRedisDeadline(
+        connect,
+        async (client) => {
+          return Number(await client.eval(consumeScript, { keys, arguments: arguments_ })) === 1;
+        },
+        2500,
+      );
     } catch {
       throw new AppError(503, 'RATE_LIMIT_UNAVAILABLE', 'Request limiting is unavailable');
     }
@@ -62,14 +70,19 @@ function resolvedEmail(req) {
 export function createLinkRateLimit({ connect = getRedis } = {}) {
   return createRateLimitMiddleware(async (req) => {
     try {
-      const client = await connect();
-      return (
-        Number(
-          await client.eval(consumeScript, {
-            keys: [`shorturl:limit:create:${req.user.id}`],
-            arguments: ['60', '30'],
-          }),
-        ) === 1
+      return await withRedisDeadline(
+        connect,
+        async (client) => {
+          return (
+            Number(
+              await client.eval(consumeScript, {
+                keys: [`shorturl:limit:create:${req.user.id}`],
+                arguments: ['60', '30'],
+              }),
+            ) === 1
+          );
+        },
+        2500,
       );
     } catch {
       throw new AppError(503, 'RATE_LIMIT_UNAVAILABLE', 'Request limiting is unavailable');

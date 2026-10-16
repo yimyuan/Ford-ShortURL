@@ -129,7 +129,10 @@ test("creation retries unique collisions, persists normalized URL/owner and expo
   const service = createLinksService(
     {
       create: async (input) => {
-        assert.deepEqual(input, {
+        const { requestId, requestHash, ...record } = input;
+        assert.match(requestId, /^[a-f0-9-]{36}$/);
+        assert.match(requestHash, /^[a-f0-9]{64}$/);
+        assert.deepEqual(record, {
           userId: owner.id,
           shortCode: row.short_code,
           originalUrl: "https://example.com/path?q=1",
@@ -334,6 +337,7 @@ test("link creation rate limit is tied to verified owner and uses atomic bounded
   let error;
   await createLinkRateLimit({
     connect: async () => ({
+      withCommandOptions() { return this; },
       eval: async (script, query) => {
         input = { script, ...query };
         return 0;

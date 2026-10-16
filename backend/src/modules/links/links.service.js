@@ -2,7 +2,7 @@ import { renderLinkQr } from './qr.renderer.js';
 import { defaultQrStyle, parseQrQuery, parseQrUpdate } from './qr.schema.js';
 import { publicLinkUrl } from './public-url.js';
 import { isValidShortCode } from './short-code.js';
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID, createHash } from 'node:crypto';
 import { config } from '../../config.js';
 import { AppError } from '../../errors/app-error.js';
 import { linksRepository } from './links.repository.js';
@@ -35,8 +35,16 @@ export function createLinksService(
     return row;
   }
   return {
-    async create(identity, input) {
+    async create(identity, input, requestId = randomUUID()) {
       const { originalUrl, customCode } = parseCreateLink(input);
+      if (
+        typeof requestId !== 'string' ||
+        !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestId)
+      )
+        throw new AppError(422, 'INVALID_IDEMPOTENCY_KEY', 'Supply a UUID v4 Idempotency-Key');
+      const requestHash = createHash('sha256')
+        .update(JSON.stringify([originalUrl, customCode || null]))
+        .digest('hex');
       publicUrl('validate');
       for (let attempt = 0; attempt < 5; attempt++) {
         const shortCode = customCode || generate();
@@ -46,6 +54,8 @@ export function createLinksService(
               userId: identity.id,
               shortCode,
               originalUrl,
+              requestId,
+              requestHash,
             }),
           );
         } catch (error) {

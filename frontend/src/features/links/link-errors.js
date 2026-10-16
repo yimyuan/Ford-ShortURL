@@ -1,4 +1,10 @@
 export function linkErrorMessage(error) {
+  if (error.code === 'REQUEST_LINK_DELETED')
+    return 'ลิงก์จากคำขอนี้ถูกลบแล้ว กรุณาปิดหน้าต่างแล้วเริ่มสร้างใหม่';
+  if (error.code === 'IDEMPOTENCY_CONFLICT')
+    return 'คำขอสร้างลิงก์มีข้อมูลเปลี่ยนไป กรุณาเริ่มสร้างใหม่';
+  if (error.code === 'LINK_CREATE_FORBIDDEN')
+    return 'บัญชีนี้ยังไม่สามารถสร้างลิงก์ได้ กรุณาเข้าสู่ระบบใหม่';
   if (error.code === 'QR_CHANGED')
     return 'แบบ QR ถูกเปลี่ยนจากอีกหน้าต่าง กรุณาโหลดแบบล่าสุดก่อนบันทึก';
   if (error.code === 'QR_LOW_CONTRAST')

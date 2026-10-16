@@ -1,6 +1,8 @@
 import { linksService } from './links.service.js';
 export async function create(req, res) {
-  res.status(201).json(await linksService.create(req.user, res.locals.input));
+  // Required at the HTTP boundary so a client can safely retry a lost response.
+  const requestId = req.get('idempotency-key') || '';
+  res.status(201).json(await linksService.create(req.user, res.locals.input, requestId));
 }
 export async function list(req, res) {
   res.json(await linksService.list(req.user, res.locals.input));

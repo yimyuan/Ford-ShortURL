@@ -16,7 +16,7 @@
 - บันทึกแบบ QR แยกตามลิงก์ เก็บเฉพาะค่าสี/ขนาด/รูปแบบ ไม่เก็บไฟล์ภาพ สีปรับอิสระพร้อมคำเตือนการสแกน
 - Dashboard ผู้ใช้: จำนวนลิงก์ ยอดเปิดรวม ลิงก์ที่มีคนเปิดแล้ว กราฟ Recharts 7 วัน และลิงก์ยอดนิยม 5 อันดับ
 - Admin: ภาพรวม ผู้ใช้ สิทธิ์ สถานะบัญชี รหัสผ่านชั่วคราว ลบบัญชี จัดการลิงก์ตามเจ้าของ และประวัติ
-- ยืนยันก่อนบันทึกการเปลี่ยนแปลง เก็บ Audit Log และล้างประวัติ Admin เก่ากว่า 1 เดือนตามปฏิทินเวลาไทยทุกชั่วโมงด้วย Supabase Cron
+- ยืนยันก่อนบันทึกการเปลี่ยนแปลง เก็บ Audit Log ของ Admin เพื่อใช้ตรวจสอบความปลอดภัยโดยไม่ลบอัตโนมัติ
 
 ยอดเปิดรวมการเปิดซ้ำและบอต ไม่ใช่ผู้เข้าชมที่ไม่ซ้ำ กราฟรายวันเริ่มเก็บตั้งแต่ migration 015; วันก่อนเริ่มเก็บแสดงว่าไม่มีข้อมูล ส่วนยอดสะสมเดิมยังอยู่
 
@@ -68,7 +68,7 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 ### เตรียมฐานข้อมูลใหม่
 
-เปิด Supabase SQL Editor แล้วรัน [backend/sql](backend/sql) **001 ถึง 016 ตามลำดับ** ทีละไฟล์ รายละเอียดอยู่ใน [Backend README](backend/README.md#database-migrations)
+เปิด Supabase SQL Editor แล้วรัน [backend/sql](backend/sql) **001 ถึง 019 ตามลำดับ** ทีละไฟล์ รายละเอียดอยู่ใน [Backend README](backend/README.md#database-migrations)
 
 - ถ้ามี migration แล้วให้รันเฉพาะไฟล์ที่ยังไม่ได้ใช้ ไม่รันไฟล์เดิมซ้ำ
 - 003 เปิด schema app ให้ Data API; authenticator.pgrst.db_schemas ในไฟล์นี้ override Dashboard Exposed schemas
@@ -156,6 +156,8 @@ Build สร้าง frontend/dist/ บาง environment บล็อก local
 
 ## แนวทาง Deploy
 
+มี GitHub Actions CI และ Netlify Edge Proxy configuration แล้ว ดูขั้นตอนตั้งค่าและ Migration 017 ใน [คู่มือ Deploy](docs/DEPLOY.md) ต้องตั้ง Secrets บน Hosting และทดสอบจริงก่อนเปิดใช้งาน CI ยังไม่ Deploy อัตโนมัติ
+
 1. ติดตั้ง npm ci แล้ว Build ด้วย npm run build
 2. โฮสต์ frontend/dist/ พร้อม SPA fallback ไป index.html สำหรับ /my-links, /dashboard, /admin
 3. รัน Backend ด้วย npm start และกำหนด environment ของ Hosting
@@ -180,7 +182,7 @@ backend/src/
   infrastructure/       Supabase SDK, Redis
   security/             Password hash, JWT, refresh token
   middleware/           Auth, roles, validation, write guards
-backend/sql/            Migrations 001–016
+backend/sql/            Migrations 001–019
 scripts/                FORD CLI และ tests
 docs/                   เอกสารออกแบบและ Diagram
 ```
@@ -190,7 +192,7 @@ docs/                   เอกสารออกแบบและ Diagram
 - [DFD/ERD ต้นฉบับ](docs/diagrams/short-url-dfd.html) และ [PDF](docs/diagrams/pdf): **ฉบับก่อนฟีเจอร์ล่าสุด ต้องอัปเดตก่อนส่งงาน**
 - [Backend Design](docs/design/BACKEND_DESIGN.md) และ [Design Review](docs/design/DESIGN_REVIEW.md): มีแบบเดิม ให้ยึด implementation, migrations และ README ปัจจุบัน
 
-ฐานข้อมูลปัจจุบันมี users, links, admin_audit_logs, analytics_state, link_click_daily รวม 5 ตาราง การล้างประวัติ 1 เดือนใช้กับ **Admin Audit Log** เท่านั้น ไม่ลบลิงก์ผู้ใช้
+หลัง Migration 017 มี 7 ตาราง รวม short_code_reservations และ link_creation_requests; Migration 018 ยกเลิกการลบ Admin Audit Log อัตโนมัติ เก็บประวัติไว้ตรวจสอบความปลอดภัย
 
 ## ข้อจำกัดที่ต้องติดตาม
 
