@@ -1,0 +1,2 @@
+# Preserve generated PDF byte offsets on Windows; never normalize line endings.
+*.pdf binary

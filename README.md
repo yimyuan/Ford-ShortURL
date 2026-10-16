@@ -187,8 +187,8 @@ docs/                   เอกสารออกแบบและ Diagram
 
 - [Backend README](backend/README.md): API, migrations, ข้อจำกัด
 - [Frontend README](frontend/README.md): routes, flow, UI, packages
-- [DFD/ERD ต้นฉบับ](docs/diagrams/short-url-dfd.html) และ [PDF](docs/diagrams/pdf): **ฉบับก่อนฟีเจอร์ล่าสุด ต้องอัปเดตก่อนส่งงาน**
-- [Backend Design](docs/design/BACKEND_DESIGN.md) และ [Design Review](docs/design/DESIGN_REVIEW.md): มีแบบเดิม ให้ยึด implementation, migrations และ README ปัจจุบัน
+- [DFD/ERD](docs/diagrams/short-url-dfd.html) และ [PDF](docs/diagrams/pdf): อัปเดตตามโค้ดและ SQL 001–019 (2026-10-16) ดู [วิธีสร้างเอกสาร](docs/diagrams/README.md)
+- [System Design](docs/design/BACKEND_DESIGN.md), [Data Dictionary](docs/design/DATA_DICTIONARY.md) และ [Design Review](docs/design/DESIGN_REVIEW.md): Auth, data flows, 7 ตาราง, Redis และข้อจำกัดปัจจุบัน
 
 หลัง Migration 017 มี 7 ตาราง รวม short_code_reservations และ link_creation_requests; Migration 018 ยกเลิกการลบ Admin Audit Log อัตโนมัติ เก็บประวัติไว้ตรวจสอบความปลอดภัย
 
@@ -196,7 +196,7 @@ docs/                   เอกสารออกแบบและ Diagram
 
 - ยังไม่มี Google Login, email verification, ลืมรหัสผ่านทางอีเมล หรือหน้าตั้งค่าติดต่อ Admin
 - สี QR ปรับอิสระจึงไม่รับประกันการสแกนทุกคู่สี ควรทดลองก่อนใช้จริง
-- DFD/ERD, URL ออนไลน์ และการสาธิตครบ flow ยังต้องเตรียมก่อนส่งงาน
+- ต้องทดสอบเว็บออนไลน์และเตรียมการสาธิตครบ flow ก่อนส่งงาน เอกสารไม่ใช่หลักฐานว่า Production ผ่านทุกกรณี
 
 ## ก่อนนำขึ้น Git
 
