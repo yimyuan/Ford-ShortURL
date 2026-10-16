@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 import { config } from '../config.js';
+import { logRedisFailure } from './redis-diagnostics.js';
 let client;
 let connecting;
 export async function getRedis() {
@@ -10,13 +11,19 @@ export async function getRedis() {
       disableOfflineQueue: true,
       socket: { connectTimeout: 2000, socketTimeout: 2000, reconnectStrategy: false },
     });
-    client.on('error', () => console.error('Redis connection error'));
+    client.on('error', (error) => logRedisFailure('socket', error));
   }
   if (!client.isReady) {
     if (!connecting && !client.isOpen)
-      connecting = client.connect().finally(() => {
-        connecting = undefined;
-      });
+      connecting = client
+        .connect()
+        .catch((error) => {
+          logRedisFailure('connect', error);
+          throw error;
+        })
+        .finally(() => {
+          connecting = undefined;
+        });
     if (connecting) await connecting;
     if (!client.isReady) throw new Error('Redis is not ready');
   }
