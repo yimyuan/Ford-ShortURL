@@ -6,7 +6,7 @@ export function createAuthenticate(verifyIdentity) {
   return async (req, _res, next) => {
     try {
       const match = /^Bearer ([^\s]+)$/.exec(req.get('authorization') || '');
-      const token = req.cookies?.shorturl_access || match?.[1];
+      const token = match?.[1];
       if (!token) throw new AppError(401, 'UNAUTHENTICATED', 'Login required');
       if (!verifyIdentity)
         throw new AppError(503, 'AUTH_NOT_READY', 'Authentication is not configured yet');
@@ -14,6 +14,7 @@ export function createAuthenticate(verifyIdentity) {
       if (!user?.id || !['user', 'admin'].includes(user.role))
         throw new AppError(401, 'UNAUTHENTICATED', 'Invalid login');
       req.user = user;
+      req.accessToken = token;
       if (
         user.mustChangePassword &&
         !(req.baseUrl === '/api/auth' && ['/me', '/change-password', '/logout'].includes(req.path))

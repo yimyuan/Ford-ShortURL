@@ -1,4 +1,4 @@
-export default function Brand({ href = '/', label = 'ShortURL หน้าแรก' }) {
+export default function Brand({ href = '#/', label = 'ShortURL หน้าแรก' }) {
   return (
     <a
       className="

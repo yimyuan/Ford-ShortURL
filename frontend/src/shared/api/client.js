@@ -1,3 +1,4 @@
+import { getAccessToken, expireSession } from './session.js';
 export class ApiError extends Error {
   constructor(status, code, message) {
     super(message || code);
@@ -6,41 +7,40 @@ export class ApiError extends Error {
     this.code = code;
   }
 }
-
-let refreshPromise;
-
-async function renewSession() {
-  // A different tab may already have refreshed the shared HttpOnly cookies.
-  try {
-    await request('/api/auth/me');
-    return;
-  } catch (error) {
-    if (error.status !== 401) throw error;
-  }
-  await request('/api/auth/refresh', { method: 'POST', body: {} });
+export function apiOrigin(value = import.meta.env?.VITE_API_ORIGIN || '') {
+  if (!value) return '';
+  const url = new URL(value);
+  if (
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash ||
+    (url.protocol !== 'https:' &&
+      !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))
+  )
+    throw new Error('VITE_API_ORIGIN must be an HTTPS origin');
+  return url.origin;
 }
-
-function refreshSession() {
-  return typeof navigator !== 'undefined' && navigator.locks?.request
-    ? navigator.locks.request('shorturl.session-refresh', renewSession)
-    : renewSession();
-}
-
-async function request(path, options = {}) {
+export async function apiRequest(path, { auth = true, ...options } = {}) {
+  if (!path.startsWith('/api/')) throw new ApiError(400, 'INVALID_API_PATH', 'Invalid API path');
   const { body, headers, responseType, ...rest } = options;
-  const response = await fetch(path, {
+  const token = auth ? getAccessToken() : null;
+  const response = await fetch(`${apiOrigin()}${path}`, {
     ...rest,
     signal: rest.signal
       ? AbortSignal.any([rest.signal, AbortSignal.timeout(15000)])
       : AbortSignal.timeout(15000),
-    credentials: 'include',
+    credentials: 'omit',
     headers: {
       Accept: 'application/json',
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
+  if (response.status === 401 && token && getAccessToken() === token) expireSession();
   if (response.ok && responseType === 'blob') return response.blob();
   const text = await response.text();
   let data;
@@ -58,23 +58,4 @@ async function request(path, options = {}) {
   if (response.status !== 204 && data === null)
     throw new ApiError(502, 'INVALID_RESPONSE', 'Invalid service response');
   return data;
-}
-
-export async function apiRequest(path, { skipRefresh = false, ...options } = {}) {
-  try {
-    return await request(path, options);
-  } catch (error) {
-    if (error.status !== 401 || skipRefresh || options.signal?.aborted) throw error;
-    if (!refreshPromise) {
-      refreshPromise = refreshSession().finally(() => {
-        refreshPromise = null;
-      });
-    }
-    try {
-      await refreshPromise;
-    } catch (refreshError) {
-      throw refreshError.status === 401 ? error : refreshError;
-    }
-    return request(path, options);
-  }
 }

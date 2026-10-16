@@ -1,4 +1,5 @@
 import HomePage from '../features/home/pages/HomePage.jsx';
+import { useEffect, useState } from 'react';
 import MyLinksPage from '../features/links/pages/MyLinksPage.jsx';
 import UserDashboardPage from '../features/dashboard/pages/UserDashboardPage.jsx';
 import AdminDashboardPage from '../features/admin/pages/AdminDashboardPage.jsx';
@@ -9,7 +10,18 @@ import PublicGuard from './guards/PublicGuard.jsx';
 import { getRoute, paths } from './navigation.js';
 
 export default function AppRoutes() {
-  switch (getRoute(window.location.pathname)) {
+  const [hash, setHash] = useState(() => window.location.hash || '#/');
+  useEffect(() => {
+    const changed = () => setHash(window.location.hash || '#/');
+    window.addEventListener('hashchange', changed);
+    return () => window.removeEventListener('hashchange', changed);
+  }, []);
+  useEffect(() => {
+    const anchor = hash.split('#')[2];
+    if (anchor) document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth' });
+    else window.scrollTo(0, 0);
+  }, [hash]);
+  switch (getRoute(hash)) {
     case 'dashboard':
       return (
         <PublicGuard>

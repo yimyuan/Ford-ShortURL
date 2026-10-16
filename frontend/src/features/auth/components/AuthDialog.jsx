@@ -82,6 +82,9 @@ export default function AuthDialog({
               ? 'เข้าสู่ระบบเพื่อดำเนินการต่อ เราเก็บ URL ของคุณไว้แล้ว'
               : 'พื้นที่สำหรับทุกลิงก์และการแชร์ของคุณ'}
         </p>
+        <p className="mb-4 text-12 text-text-muted">
+          รีเฟรชหน้าหรือหมดเวลาเข้าสู่ระบบแล้ว ต้องเข้าสู่ระบบใหม่
+        </p>
         {pending && (
           <div
             className="

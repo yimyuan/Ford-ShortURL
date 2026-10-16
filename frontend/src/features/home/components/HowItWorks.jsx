@@ -63,7 +63,11 @@ export default function HowItWorks({ urlInput }) {
             </article>
           ))}
         </div>
-        <Button className="scroll-reveal" href="#shorten" onClick={() => urlInput.current.focus()}>
+        <Button
+          className="scroll-reveal"
+          href="#/#shorten"
+          onClick={() => urlInput.current.focus()}
+        >
           เริ่มสร้างลิงก์ <Icon name="arrow" width="18" />
         </Button>
       </div>

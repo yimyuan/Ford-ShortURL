@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { authenticateUser, getCurrentUser, logoutUser } from './api.js';
+import { clearAccessToken, onSessionExpired } from '../../shared/api/session.js';
 
 const AuthContext = createContext(null);
 
@@ -7,9 +8,11 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState({ status: 'loading', user: null });
   const operation = useRef(0);
   const clearSession = useCallback(() => {
+    clearAccessToken();
     operation.current += 1;
     setSession({ status: 'anonymous', user: null });
   }, []);
+  useEffect(() => onSessionExpired(clearSession), [clearSession]);
   const restoreSession = useCallback(async () => {
     try {
       return { status: 'authenticated', user: await getCurrentUser() };
