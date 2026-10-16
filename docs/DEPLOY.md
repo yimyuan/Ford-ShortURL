@@ -91,6 +91,8 @@ Hash ไม่ถูกส่งไป GitHub server จึงเปิดตร
 
 ## Integration ในเครื่อง
 
+แผนภาพและ schema reference: [DFD/ER](diagrams/short-url-dfd.html), [Data Dictionary](design/DATA_DICTIONARY.md) อ้างอิง source/migrations 001–019 การอัปเดตเอกสารไม่ต้องรัน migration ซ้ำ
+
 ต้องมี psql และ PostgreSQL/Redis ชั่วคราวที่ localhost ตั้ง `TEST_DATABASE_URL` (Database ชื่อ shorturl_test) และ `TEST_REDIS_URL` แล้วรัน `node backend/scripts/test-integration.js`
 
 Tests ปฏิเสธฐานข้อมูลที่ไม่ใช่ localhost และไม่ล้าง Schema เดิมให้เอง รัน Migration 001–019 ยกเว้น 010 เพราะ PostgreSQL image มาตรฐานไม่มี pg_cron

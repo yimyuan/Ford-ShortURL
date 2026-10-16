@@ -25,9 +25,9 @@ Vite เปิด http://127.0.0.1:5173 และ proxy /api, /r ไป http://1
 | #/dashboard | ภาพรวมผู้ใช้ กราฟ 7 วัน Top 5 |
 | #/admin | Admin overview/users/owner links/history |
 
-เมนูผู้ใช้เรียง **หน้าแรก → ลิงก์ของฉัน → ภาพรวม** UserLayout ใช้ร่วมกันในหน้า User; AdminLayout/guards แยกต่างหาก Admin ไป /admin ผู้ใช้ทั่วไปไม่มีสิทธิ์เปิด Admin
+เมนูผู้ใช้เรียง **หน้าแรก → ลิงก์ของฉัน → ภาพรวม** UserLayout ใช้ร่วมกันในหน้า User; AdminLayout/guards แยกต่างหาก Admin ไป #/admin ผู้ใช้ทั่วไปไม่มีสิทธิ์เปิด Admin
 
-สร้างลิงก์: URL → Login/สมัครหากยังไม่เข้า → Popup ตั้งชื่อหรือสุ่ม → ยืนยัน → /my-links ไม่มีช่องตั้งชื่อบนหน้าแรกและไม่มี window.confirm ซ้ำ Draft URL/ชื่ออยู่ใน sessionStorage เฉพาะแท็บ ล้างเมื่อสร้างสำเร็จ ไม่เก็บ password/token ใน browser storage
+สร้างลิงก์: URL → Login/สมัครหากยังไม่เข้า → Popup ตั้งชื่อหรือสุ่ม → ยืนยัน → #/my-links ไม่มีช่องตั้งชื่อบนหน้าแรกและไม่มี window.confirm ซ้ำ Draft URL/ชื่ออยู่ใน sessionStorage เฉพาะแท็บ ล้างเมื่อสร้างสำเร็จ ไม่เก็บ password/token ใน browser storage
 
 บัญชีที่ถูก reset password ต้องผ่าน PasswordChangeGate และเข้าสู่ระบบใหม่ก่อนใช้ส่วนอื่น
 
@@ -89,7 +89,7 @@ Runtime: react, react-dom, recharts ส่วน development ใช้ vite, @vi
 
 Node tests ตรวจ API contracts, bearer expiry, pagination, QR settings, chart precision, rendering, modal lifecycle บางชุดใช้ Vite SSR ไม่ใช่ browser end-to-end test
 
-Build อยู่ frontend/dist/ ตั้ง VITE_BASE_PATH=/Ford-ShortURL/ และ VITE_API_ORIGIN เป็น Render Origin ใช้ Hash Routing ไม่ต้อง SPA fallback/proxy ดูคู่มือ ../docs/DEPLOY.md ตรวจ responsive, CORS, Token expiry, clipboard/download และ QR บนอุปกรณ์จริงเพิ่มเติม DFD/ERD ยังเป็นฉบับก่อนฟีเจอร์ล่าสุด
+Build อยู่ frontend/dist/ ตั้ง VITE_BASE_PATH=/Ford-ShortURL/ และ VITE_API_ORIGIN เป็น Render Origin ใช้ Hash Routing ไม่ต้อง SPA fallback/proxy ดูคู่มือ ../docs/DEPLOY.md ตรวจ responsive, CORS, Token expiry, clipboard/download และ QR บนอุปกรณ์จริงเพิ่มเติม ดู [DFD/ERD ปัจจุบัน](../docs/diagrams/short-url-dfd.html) และ [System Design](../docs/design/BACKEND_DESIGN.md)
 
 ## GitHub Pages และ Login
 

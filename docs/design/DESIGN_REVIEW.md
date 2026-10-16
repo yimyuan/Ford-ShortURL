@@ -1,52 +1,37 @@
-# Design Review - Token Authentication + Admin
+# Design Review - Implementation Traceability
 
-2026-10-14. ยังเป็นเอกสาร/แผนภาพ ไม่มี API/PostgreSQL/Redis จริง.
+อัปเดต 2026-10-16 จาก source/migrations ไม่ใช่ Production acceptance test แทนแบบเดิม Refresh Cookie และคำกล่าวว่ายังไม่มีระบบจริง
 
-## ขอบเขตใหม่ที่ผู้ใช้ยืนยัน
+| เรื่อง | หลักฐาน | พฤติกรรมปัจจุบัน |
+| --- | --- | --- |
+| Auth | modules/auth, security/access-token.js | HS256 JWT + Redis session ไม่มี Cookie/Refresh |
+| Current permissions | auth.service.verifyIdentity, SQL 006/008 | current role/active/auth_version และ owner scope |
+| Origin/CORS | middleware/csrf.js, cors.js | exact origin + JSON + Bearer ไม่ใช่ double-submit cookie |
+| Rate limit | middleware/rate-limit.js, infrastructure/deadline.js | Lua atomic/deadline/fail closed ต้องตรวจ proxy บน host |
+| Diagnostics | infrastructure/redis-diagnostics.js และ tests | allowlist operation/reason ไม่ log raw secrets |
+| Collision | SQL 001/011/017, links.service/repository | UNIQUE/reservation; random สูงสุด 5 attempts |
+| Response loss | SQL 017 create_short_link | reuse key + intent เดิมคืน link เดิม key ใหม่สร้างซ้ำได้ |
+| Redirect | SQL 015 resolve_short_link | lifetime/daily atomic; active link/owner; HEAD ไม่นับ |
+| Redis outage | links.cache.js, auth.repository.js | cache fallback; auth/rate-limit fail closed |
+| QR | SQL 012–014, qr.schema/renderer | settings เท่านั้น สีอิสระต้องทดสอบ scan จริง |
+| History/dashboard | SQL 015–016 | scoped aggregates/filter ก่อน pagination 10 แถว |
+| Admin | SQL 004/006/008, admin services | primary protection, confirmed revisions, audit |
+| Retention | SQL 018–019 | audit ไม่ลบอัตโนมัติ ไม่กู้ข้อมูลเดิมที่หาย |
+| CI/CD | .github/workflows/ci.yml, DEPLOY | Pages gated; Render gate เป็น Dashboard setting |
 
-เปลี่ยน Server-side Session เป็น Access JWT + rotating opaque Refresh Token. Access ใน React memory ไม่PostgreSQL; Refresh Cookie HttpOnly และRedisเก็บHash. เพิ่ม6.0Adminสำหรับผู้ใช้/สิทธิ์/ลิงก์/forceLogout/ประวัติการแก้ไข. ไม่เพิ่มresetpasswordหรือroles table.
+JS ในตารางอยู่ backend/src, tests อยู่ backend/tests และ SQL อยู่ backend/sql ดู [System Design](BACKEND_DESIGN.md), [Data Dictionary](DATA_DICTIONARY.md), [Diagram sources](../diagrams/README.md)
 
-## Critical
+## ข้อจำกัด
 
-- JWT Role ไม่เปลี่ยนทันทีเมื่อDBเปลี่ยน: ไม่ตัดสินRoleจากJWT;ตรวจusers role/status/auth_versionล่าสุดทุกprotected request.
-- LogoutเฉพาะRefreshไม่ยกเลิกAccessJWTทันที:ทุกrequestต้องตรวจRedisfamilyactive.
-- AdminforceLogout/disableต้องไม่เกิดช่องว่างSQL/Redis:เพิ่มauth_versionในPostgreSQL;Tokenเก่าถูกปฏิเสธแม้Rediscleanupfailed.
-- PublicRegisterห้ามสร้างAdminจากbody;ทุกAdminendpointตรวจBackendroleล่าสุด;Userownershipยังต้องตรวจ.
+- ไม่มี automatic refresh ต้อง Login ใหม่หลัง reload/expiry
+- Clicks รวม bot/retry ไม่ใช่ unique visitors; HTTP response กับ DB commit แยกกัน
+- ลบ link ลบ daily rows Dashboard ไม่รวมลิงก์ที่ถูกลบแล้ว
+- Audit/reservations ไม่มี retention cleanup ต้องติดตามขนาดเมื่อใช้งานจริง
+- Idempotency กันซ้ำเฉพาะ key เดิม Frontend เก็บ create intent ใน sessionStorage ไม่ใช่ deduplicate URL ทั่วระบบ
+- สี QR อิสระไม่ได้รับประกันทุกอุปกรณ์สแกนผ่าน
+- health 200 ไม่ยืนยัน Redis/DB ต้องทดสอบ Login/Create/redirect/QR/Admin บน hosting จริง
+- การอัปเดตเอกสารนี้ไม่ introspect Production หรือรัน migration อ้างอิงผลรวม 001–019
 
-## Major
+## Document verification
 
-- Refreshต้องrotateatomicและdetectusedhashreuse;invalidrandomhashห้ามrevokefamilyของคนอื่น.
-- CSRFต้องออกแบบใหม่ ไม่ใช้req.sessionหลังเปลี่ยนToken;ใช้signed/bounddouble-submitสำหรับCookie-auth endpoints.
-- RedisfamilyTTL7วันabsolute;JWT15นาที;multitabrefreshserializeและห้ามblindretry.
-- Adminปิดลิงก์:SELECT/UPDATEactive;404ไม่นับ. แก้URLไม่เปลี่ยนshort_code/count.
-- ป้องกันAdminคนสุดท้ายในtransaction;BootstrapAdmincontrolledไม่publicregistration.
-- AuditStorageยังไม่เลือก:รอคำตอบว่าจะเพิ่มaudit_logsหรือเก็บภายนอก ห้ามอ้างว่าประวัติAdminครบแล้ว.
-
-## Minor
-
-- เพิ่มrole/is_active/auth_version/updated_atในusers;is_active/updated_atในlinks. updated_atไม่เปลี่ยนทุกคลิก.
-- เพิ่มRefresh/Adminscenariosโดยไม่เชื่อมRegisterLoginทุกครั้ง;PDFดาวน์โหลดต้องตรงแบบล่าสุด.
-
-## สถานะเอกสาร
-
-DFDมี6Processes และD1Links/D2Users/D3AuthTokens. AuditDataStoreยังไม่เพิ่มจนStorageยืนยัน. PostgreSQLERDยัง2ตาราง. BackendDesignแทนSessionเดิมหมดแล้ว.
-
-## Verification
-
-ตรวจsyntaxผ่าน. Browserตรวจ45Flows:ไม่มีendpointลอย;13scenariosถึงcardถูกต้อง;ไม่มีruntimeerror. PDFครบ6หน้า:DFD5หน้าA4และERD1หน้าA3;ตรวจภาพทุกหน้าและปรับข้อความไม่ทับเส้น. PDFแยกDFD/ERDอัปเดตเลขหน้าและเป็นเวกเตอร์ไม่มีภาพราสเตอร์. ยังไม่ทดสอบToken/SQL/Redisจริงเพราะยังไม่มีimplementation.
-
-## Decision pending
-
-ประวัติAdmin: audit_logsในPostgreSQLเหมาะกับTransaction แต่ขัดจำนวนสองตารางเดิม;ทางเลือกภายนอกต้องออกแบบdurability/dual-write. คำถามส่งให้ผู้ใช้แล้ว.
-
-## PostgreSQL migration - 2026-10-15
-
-DFD/ERDใช้PostgreSQLบนSupabaseแทนฐานข้อมูลเดิม;แปลงUNSIGNEDเป็นBIGINT+CHECK,IDENTITYแทนAUTO_INCREMENT,TIMESTAMPTZแทนDATETIME,RoleVARCHAR+CHECKและcase-sensitiveCOLLATE C. Backendเพิ่มpgplaceholder/RETURNING/23505/private schemaและconnectionTLS/pooler. AuthTokenRedis/Adminscopeเดิม;ยังไม่ได้setupหรือสร้างdatabaseจริง. AuditStorageยังรอเลือก.
-
-ตรวจหลังแก้: JavaScript syntax ผ่าน; PDF รวม 6 หน้า, DFD 5 หน้า และ ERD 1 หน้า อัปเดตเป็น PostgreSQL แล้ว ตรวจภาพ PDF ทุกหน้าและไม่พบภาพ raster ในฉบับรวม ยังไม่ได้สร้างฐานข้อมูลหรือรัน SQL จริง
-
-## UUID IDs — 2026-10-15
-เปลี่ยน users.id, links.id และ links.user_id เป็น UUID; PK ใช้ DEFAULT gen_random_uuid() (v4), FK NOT NULL / ON DELETE RESTRICT และ cardinality เดิม. ตัด Identity/positive-ID check; JWT sub และ link_id ใช้ UUID string. ตัวนับ click_count/auth_version ยังคง BIGINT; short_code ยัง 8 ตัว. ไม่ได้สร้างฐานข้อมูลหรือ API จริง.
-
-## Email normalization — 2026-10-15
-ระบุ Register/Login/Admin email search ให้ trim + lowercase ก่อน validate/query. ERD แสดงกติกาเก็บ Email และ UNIQUE; SQL เดิมมี ck_users_email_normalized อยู่แล้ว จึงไม่เพิ่มตารางหรือเปลี่ยน auth_version/short_code. อัปเดต PDF ให้ตรงเอกสาร; เป็นข้อกำหนด ยังไม่ใช่ Backend ที่พัฒนาแล้ว.
+HTML/SVG และ PDF สร้างจาก scripts/generate-design-docs.py ชุดเดียว ไม่มีการอ่าน env/ฐานข้อมูล ตรวจ field/relations เทียบ migrations, flow เทียบ source และ render PDF ตรวจ clipping/overlap การตรวจเอกสารไม่แทน E2E หรือ load tests

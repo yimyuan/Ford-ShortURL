@@ -146,5 +146,5 @@ Migration 018 ยกเลิก Cron shorturl-admin-audit-retention และ M
 ## ข้อจำกัด
 
 - ไม่มี Google Login, email verification หรือ self-service password recovery ทางอีเมล
-- DFD/ERD และ docs/design ยังไม่ตรง implementation ล่าสุด
+- [DFD/ERD](../docs/diagrams/short-url-dfd.html) และ [System Design/Data Dictionary](../docs/design/BACKEND_DESIGN.md) อัปเดตตาม source และ SQL 001–019 แล้ว การตรงกับ schema บน Hosting ต้องตรวจแยก
 - Deployment, HTTPS/CORS, Bearer session และ QR จากอุปกรณ์จริงต้องทดสอบบน Hosting
