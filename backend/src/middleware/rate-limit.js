@@ -30,7 +30,6 @@ export function createAuthRateLimit(action, { connect = getRedis, settings = con
   const limits = {
     login: [900, 30, 12],
     register: [3600, 10],
-    refresh: [900, 120],
     logout: [900, 120],
     admin: [900, 60],
     password: [900, 10],
@@ -41,9 +40,7 @@ export function createAuthRateLimit(action, { connect = getRedis, settings = con
     if (Buffer.byteLength(settings.csrfSecret || '') < 32)
       throw new AppError(503, 'RATE_LIMIT_NOT_READY', 'Request limiting is not configured');
     const digest = (value) => createHmac('sha256', settings.csrfSecret).update(value).digest('hex');
-    const keys = [
-      `shorturl:limit:${action}:ip:${digest(String(req.clientIp || req.ip || 'unknown'))}`,
-    ];
+    const keys = [`shorturl:limit:${action}:ip:${digest(String(req.ip || 'unknown'))}`];
     const arguments_ = [String(selected[0]), String(selected[1])];
     if (action === 'login') {
       keys.push(`shorturl:limit:login:email:${digest(resolvedEmail(req))}`);

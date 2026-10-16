@@ -6,7 +6,7 @@
 
 ## ฟังก์ชันปัจจุบัน
 
-- สมัคร/เข้าสู่ระบบด้วย Email/Password ใช้ Access JWT และ Refresh Token ผ่าน HttpOnly cookies
+- สมัคร/เข้าสู่ระบบด้วย Email/Password ใช้ Access JWT เก็บในหน่วยความจำ ส่งผ่าน Bearer Header ไม่มี Cookie/Refresh Token รีเฟรชหน้าหรือ Token หมดอายุต้อง Login ใหม่
 - กรอก URL ก่อน Login ได้ จากนั้น Login → Popup เลือกชื่อหรือสุ่ม → ยืนยันสร้าง → หน้าลิงก์ของฉัน
 - สุ่ม Base62 8 ตัว หรือกำหนดชื่อ 3–40 ตัวด้วย A–Z, a–z, 0–9 และ `-` ขึ้นต้น/ลงท้ายด้วยตัวอักษรหรือตัวเลข แยกตัวพิมพ์เล็กใหญ่ และเปลี่ยนชื่อหลังสร้างไม่ได้
 - เปิดลิงก์ผ่าน `/r/:code` ไป URL ต้นฉบับ พร้อมเพิ่มยอดแบบ atomic; HEAD ไม่เพิ่มยอด
@@ -53,8 +53,8 @@ macOS/Linux ใช้ `cp -n backend/.env.example backend/.env` แล้วก�
 | REDIS_URL | redis:// สำหรับในเครื่อง หรือ rediss:// สำหรับ TLS; ไม่ใช่ REST URL/Token |
 | JWT_SECRET | ค่าสุ่มอย่างน้อย 32 bytes |
 | CSRF_SECRET | ค่าสุ่มอีกค่าที่ต่างจาก JWT secret อย่างน้อย 32 bytes |
-| APP_ORIGIN | Origin ของเว็บ; พัฒนาใช้ http://127.0.0.1:5173 |
-| PUBLIC_BASE_URL | Origin สำหรับ Short URL/QR; พัฒนาใช้ค่าเดียวกับเว็บ |
+| APP_ORIGIN | Origin ของเว็บ; Production ใช้ https://yimyuan.github.io ไม่มี Path ของ Repository |
+| PUBLIC_BASE_URL | Origin ของ Backend สำหรับ Short URL/QR; Production ใช้ Render |
 | HOST / PORT | ปกติ 127.0.0.1 / 3000; Hosting อาจต้องใช้ HOST=0.0.0.0 |
 | NODE_ENV | development ตอนพัฒนา; production เมื่อ Deploy |
 
@@ -156,18 +156,16 @@ Build สร้าง frontend/dist/ บาง environment บล็อก local
 
 ## แนวทาง Deploy
 
-มี GitHub Actions CI และ Netlify Edge Proxy configuration แล้ว ดูขั้นตอนตั้งค่าและ Migration 017 ใน [คู่มือ Deploy](docs/DEPLOY.md) ต้องตั้ง Secrets บน Hosting และทดสอบจริงก่อนเปิดใช้งาน CI ยังไม่ Deploy อัตโนมัติ
+ใช้ GitHub Pages สำหรับ React และ Render สำหรับ Express เชื่อม Supabase/Upstash เดิม ดู [คู่มือ Deploy](docs/DEPLOY.md)
 
-1. ติดตั้ง npm ci แล้ว Build ด้วย npm run build
-2. โฮสต์ frontend/dist/ พร้อม SPA fallback ไป index.html สำหรับ /my-links, /dashboard, /admin
-3. รัน Backend ด้วย npm start และกำหนด environment ของ Hosting
-4. ใช้ HTTPS origin เดียว และ reverse proxy /api กับ /r ไป Backend **ก่อน** SPA fallback
-5. ตั้ง NODE_ENV=production, APP_ORIGIN, PUBLIC_BASE_URL เป็น origin จริงที่ตรงกัน Cookie จะใช้ Secure ใน production
-6. ทดสอบ Login/Refresh/Logout, User/Admin, สร้าง/เปิดลิงก์, QR มือถือ, กราฟ/ตัวกรอง และ Cron บนโดเมนจริง
+1. Render: npm ci --omit=dev / npm start, HOST=0.0.0.0, NODE_ENV=production, TRUST_PROXY_HOPS=1 ตามเส้นทาง Proxy ของ Render
+2. ตั้ง APP_ORIGIN=https://yimyuan.github.io และ PUBLIC_BASE_URL เป็น HTTPS Origin ของ Render
+3. GitHub Repository Variable VITE_API_ORIGIN เป็น Render Origin และ Settings → Pages → Source=GitHub Actions
+4. CI ทดสอบ Backend/Frontend/CLI และ PostgreSQL/Redis ก่อน Job deploy-pages เฉพาะ main; ถ้ายังไม่ตั้ง VITE_API_ORIGIN จะข้ามการ Deploy
+5. Pages ใช้ Base Path /Ford-ShortURL/ และ Hash Routing เช่น #/my-links ไม่ต้องมี SPA Rewrite หรือ Netlify
+6. ทดสอบ Login/Logout/หมดอายุ, Role, สร้างลิงก์, Redirect, QR และ CORS/IP บน Hosting จริง รีเฟรชหน้าแล้วต้อง Login ใหม่ตามนโยบาย
 
-npm start เปิดเฉพาะ Express ไม่ serve Frontend หรือสร้าง proxy ให้ ยังไม่มี URL Deploy/บัญชีสาธิตสาธารณะใน Repository ให้เพิ่มข้อมูลส่งงานหลัง Deploy และส่งรหัสผ่านให้ผู้ตรวจแยกจาก source code
-
-Short URL localhost เปิดไม่ได้จากมือถือเครื่องอื่น ต้องตั้งโดเมนที่อุปกรณ์เข้าถึงได้ก่อนสร้าง/ดาวน์โหลด QR สำหรับสาธิต
+npm start เปิดเฉพาะ Backend ไม่ Serve Frontend ลิงก์สั้นและ QR ใช้โดเมน Render โดยตรง ยังต้องตั้งค่า Hosting ก่อนใช้งานจริง
 
 ## โครงสร้างและเอกสาร
 
@@ -180,7 +178,7 @@ frontend/src/
 backend/src/
   modules/              auth, users, links, dashboard, admin, setup, health
   infrastructure/       Supabase SDK, Redis
-  security/             Password hash, JWT, refresh token
+  security/             Password hash, access JWT
   middleware/           Auth, roles, validation, write guards
 backend/sql/            Migrations 001–019
 scripts/                FORD CLI และ tests

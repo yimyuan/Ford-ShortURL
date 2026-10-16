@@ -47,9 +47,14 @@ for (const file of (await readdir(directory))
   if (file.startsWith('010_')) continue;
   await sql(await readFile(new URL(file, directory), 'utf8'));
 }
-await sql("INSERT INTO app.admin_audit_logs(actor_id,actor_email,target_id,target_email,action,created_at) VALUES(gen_random_uuid(),'fixture@example.test',gen_random_uuid(),'fixture@example.test','change_role',now()-interval '2 years')");
+await sql(
+  "INSERT INTO app.admin_audit_logs(actor_id,actor_email,target_id,target_email,action,created_at) VALUES(gen_random_uuid(),'fixture@example.test',gen_random_uuid(),'fixture@example.test','change_role',now()-interval '2 years')",
+);
 assert.equal(await sql("SELECT to_regprocedure('app.prune_admin_audit_logs()') IS NULL"), 't');
-assert.equal(await sql("SELECT count(*) FROM app.admin_audit_logs WHERE created_at < now()-interval '1 year'"), '1');
+assert.equal(
+  await sql("SELECT count(*) FROM app.admin_audit_logs WHERE created_at < now()-interval '1 year'"),
+  '1',
+);
 console.log('PASS: unused audit cleanup function is absent and security audit history is retained');
 const owner = randomUUID(),
   other = randomUUID();
@@ -121,18 +126,15 @@ await client.connect();
 try {
   const repo = createAuthRepository(async () => client);
   const id = randomUUID();
-  await repo.createFamily(id, {
+  await repo.createSession(id, {
     userId: other,
-    refreshHash: 'old',
     expiresAt: Math.floor(Date.now() / 1000) + 60,
   });
-  const results = await Promise.all([
-    repo.rotateRefreshToken(id, 'old', 'next-a', 0),
-    repo.rotateRefreshToken(id, 'old', 'next-b', 0),
-  ]);
-  assert.equal(results.filter(Boolean).length, 1);
-  assert.equal(await repo.findFamily(id), null);
-  console.log('PASS: real Redis Lua rotates once and revokes replayed token family');
+  assert.equal((await repo.findSession(id)).userId, other);
+  assert.ok((await client.ttl(`shorturl:session:${id}`)) > 0);
+  await repo.revokeSession(id);
+  assert.equal(await repo.findSession(id), null);
+  console.log('PASS: real Redis session TTL and revocation');
 } finally {
   client.destroy();
 }

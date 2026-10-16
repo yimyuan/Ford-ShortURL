@@ -14,7 +14,7 @@ test('my links sends filters and selected page to the server with literal URL se
     assert.equal(url.searchParams.get('clicks'), 'opened');
     assert.equal(url.searchParams.get('period'), '7d');
     assert.equal(url.searchParams.get('sort'), 'clicks');
-    assert.equal(options.credentials, 'include');
+    assert.equal(options.credentials, 'omit');
     return new Response(JSON.stringify({ items: [], total: 21, page: 3, pageSize: 10 }), {
       headers: { 'Content-Type': 'application/json' },
     });

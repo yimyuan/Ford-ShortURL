@@ -42,7 +42,7 @@ jobs:
       - run: npm ci
       - name: Install PostgreSQL test client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: PostgreSQL concurrency and Redis Lua integration
+      - name: PostgreSQL concurrency and Redis session integration
         run: node backend/scripts/test-integration.js
   test-build:
     runs-on: ubuntu-latest
@@ -60,3 +60,37 @@ jobs:
       - run: npm run test -w frontend
       - run: npm run test:cli
       - run: npm run build
+  deploy-pages:
+    needs: [test-build, database-redis]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.VITE_API_ORIGIN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - name: Build repository Pages site
+        run: npm run build
+        env:
+          VITE_API_ORIGIN: ${{ vars.VITE_API_ORIGIN }}
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: frontend/dist
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

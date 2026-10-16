@@ -1,113 +1,76 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { apiRequest, ApiError } from '../src/shared/api/client.js';
-
+import { apiRequest, apiOrigin, ApiError } from '../src/shared/api/client.js';
+import {
+  setAccessToken,
+  getAccessToken,
+  clearAccessToken,
+  onSessionExpired,
+} from '../src/shared/api/session.js';
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status });
-const expired = () => json({ error: { code: 'UNAUTHENTICATED', message: 'Login required' } }, 401);
-
-test('login sends credentials as JSON with cookie transport and preserves real API errors', async (t) => {
+test('API sends bearer token from memory and never includes browser cookies', async (t) => {
+  setAccessToken('memory-token', Math.floor(Date.now() / 1000) + 60);
+  t.after(clearAccessToken);
   t.mock.method(globalThis, 'fetch', async (path, options) => {
-    assert.equal(path, '/api/auth/login');
-    assert.equal(options.credentials, 'include');
-    assert.equal(options.headers['Content-Type'], 'application/json');
-    assert.deepEqual(JSON.parse(options.body), {
-      email: 'test@example.com',
-      password: 'test-password',
-    });
-    return json({ error: { code: 'INVALID_LOGIN', message: 'Invalid login' } }, 401);
+    assert.equal(path, '/api/links');
+    assert.equal(options.credentials, 'omit');
+    assert.equal(options.headers.Authorization, 'Bearer memory-token');
+    return json({ items: [] });
+  });
+  assert.deepEqual(await apiRequest('/api/links'), { items: [] });
+});
+test('401 clears this session and never refreshes or retries the request', async (t) => {
+  let calls = 0,
+    expired = 0;
+  setAccessToken('expired-token', Math.floor(Date.now() / 1000) + 60);
+  const stop = onSessionExpired(() => expired++);
+  t.after(stop);
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    return json({ error: { code: 'UNAUTHENTICATED' } }, 401);
   });
   await assert.rejects(
-    apiRequest('/api/auth/login', {
-      method: 'POST',
-      body: { email: 'test@example.com', password: 'test-password' },
-      skipRefresh: true,
-    }),
-    (error) => error instanceof ApiError && error.code === 'INVALID_LOGIN' && error.status === 401,
+    apiRequest('/api/auth/me'),
+    (error) => error instanceof ApiError && error.status === 401,
   );
+  assert.equal(calls, 1);
+  assert.equal(expired, 1);
+  assert.equal(getAccessToken(), null);
 });
-
-test('simultaneous protected requests share one refresh and retry with current cookies', async (t) => {
-  let authenticated = false;
-  let refreshCount = 0;
-  t.mock.method(globalThis, 'fetch', async (path) => {
-    if (path === '/api/auth/refresh') {
-      refreshCount++;
-      authenticated = true;
-      return json({ user: { id: 'u', role: 'admin' } });
-    }
-    return authenticated ? json({ items: [] }) : expired();
+test('token expiry and fresh module start are anonymous; login request omits previous bearer', async (t) => {
+  const fresh = await import('../src/shared/api/session.js?fresh-page');
+  assert.equal(fresh.getAccessToken(), null);
+  setAccessToken('old', Math.floor(Date.now() / 1000) - 1);
+  assert.equal(getAccessToken(), null);
+  setAccessToken('current', Math.floor(Date.now() / 1000) + 60);
+  t.after(clearAccessToken);
+  t.mock.method(globalThis, 'fetch', async (_path, options) => {
+    assert.equal(options.headers.Authorization, undefined);
+    return json({ error: { code: 'INVALID_LOGIN' } }, 401);
   });
-  const results = await Promise.all([
-    apiRequest('/api/admin/users'),
-    apiRequest('/api/admin/links'),
-  ]);
-  assert.deepEqual(results, [{ items: [] }, { items: [] }]);
-  assert.equal(refreshCount, 1);
+  await assert.rejects(apiRequest('/api/auth/login', { auth: false, method: 'POST', body: {} }), {
+    code: 'INVALID_LOGIN',
+  });
 });
-
-test('cross-tab refresh lock rechecks shared session before rotating again', async (t) => {
-  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  let locks = 0;
-  let refreshCount = 0;
-  let firstRequest = true;
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: {
-      locks: {
-        async request(name, work) {
-          assert.equal(name, 'shorturl.session-refresh');
-          locks++;
-          return work();
-        },
-      },
-    },
-  });
-  t.after(() => {
-    if (original) Object.defineProperty(globalThis, 'navigator', original);
-    else delete globalThis.navigator;
-  });
-  t.mock.method(globalThis, 'fetch', async (path) => {
-    if (path === '/api/auth/refresh') refreshCount++;
-    if (path === '/api/admin/users' && firstRequest) {
-      firstRequest = false;
-      return expired();
-    }
-    return json(path === '/api/auth/me' ? { user: { id: 'u' } } : { items: [] });
-  });
-  assert.deepEqual(await apiRequest('/api/admin/users'), { items: [] });
-  assert.equal(locks, 1);
-  assert.equal(refreshCount, 0);
-});
-
-test('expired refresh fails once, logout204 is accepted, malformed success is rejected', async (t) => {
-  let refreshes = 0;
-  t.mock.method(globalThis, 'fetch', async (path) => {
-    if (path === '/api/auth/logout') return new Response(null, { status: 204 });
-    if (path === '/malformed') return new Response('not-json');
-    if (path === '/api/auth/refresh') refreshes++;
-    return expired();
-  });
-  await assert.rejects(apiRequest('/api/admin/users'), { status: 401 });
-  assert.equal(refreshes, 1);
+test('QR stays binary, 204 is accepted, malformed responses and unsafe origins fail', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (path) =>
+    path.includes('/qr')
+      ? new Response('<svg/>', { headers: { 'Content-Type': 'image/svg+xml' } })
+      : path.endsWith('/logout')
+        ? new Response(null, { status: 204 })
+        : new Response('bad'),
+  );
   assert.equal(
-    await apiRequest('/api/auth/logout', { method: 'POST', body: {}, skipRefresh: true }),
-    null,
+    await (await apiRequest('/api/links/id/qr', { responseType: 'blob' })).text(),
+    '<svg/>',
   );
-  await assert.rejects(apiRequest('/malformed'), { status: 502, code: 'INVALID_RESPONSE' });
-});
-
-test('QR downloads retain blob response type after refreshing an expired session', async (t) => {
-  let authenticated = false;
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
-  t.mock.method(globalThis, 'fetch', async (path) => {
-    if (path === '/api/auth/refresh') {
-      authenticated = true;
-      return json({ user: { id: 'u' } });
-    }
-    if (!authenticated) return expired();
-    return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml' } });
-  });
-  const blob = await apiRequest('/api/links/example/qr', { responseType: 'blob' });
-  assert.equal(blob.type, 'image/svg+xml');
-  assert.equal(await blob.text(), svg);
+  assert.equal(await apiRequest('/api/auth/logout', { method: 'POST', body: {} }), null);
+  await assert.rejects(apiRequest('/api/malformed'), { code: 'INVALID_RESPONSE' });
+  for (const origin of [
+    'http://evil.example',
+    'https://user:pass@example.com',
+    'https://example.com/api',
+  ])
+    assert.throws(() => apiOrigin(origin));
+  assert.equal(apiOrigin('https://backend.onrender.com'), 'https://backend.onrender.com');
 });

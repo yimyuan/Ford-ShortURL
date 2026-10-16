@@ -18,7 +18,7 @@ export default function AdminSidebar({ section, onSelect, open, onClose }) {
         )}
       >
         <div className="[&_.brand]:text-23 [&_.brand]:text-white [&_.brand-mark]:h-12 [&_.brand-mark]:w-9 [&_.brand-mark]:text-47 [&_.brand-mark]:text-white">
-          <Brand href="/admin" label="ShortURL ผู้ดูแลระบบ" />
+          <Brand href="#/admin" label="ShortURL ผู้ดูแลระบบ" />
         </div>
         <div className="mt-2 pl-[52px] font-display text-13 font-semibold tracking-[1.5px] text-admin-sidebar-muted">
           ADMIN WORKSPACE

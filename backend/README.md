@@ -9,7 +9,7 @@ Node.js 24+ / Express 5 เชื่อม PostgreSQL ผ่าน Supabase SDK/
 ```text
 src/
   modules/
-    auth/        Register, Login, Refresh, Logout, Change password
+    auth/        Register, Login, Logout, Change password
     users/       Current user และ user repository
     links/       Create, history/filter, redirect, QR settings/rendering
     dashboard/   Aggregate เฉพาะเจ้าของลิงก์
@@ -18,7 +18,7 @@ src/
     health/      Process liveness
   infrastructure/  Supabase SDK, Redis
   middleware/      Auth, roles, validation, Origin/JSON guards, rate limits
-  security/        Scrypt password hash, access JWT, refresh tokens
+  security/        Scrypt password hash, access JWT
   errors/          AppError
 sql/               Migrations
 scripts/           Connection check, admin setup
@@ -75,18 +75,20 @@ POST /api/links ต้องส่ง `Idempotency-Key` แบบ UUID v4 นอ
 
 Redis Cache มี Deadline 150ms ต่อ Operation; Session/Rate Limit มี Deadline 2500ms และ Socket Timeout 2000ms Cache ล้มเหลวกลับไป DB ส่วน Auth/Rate Limit คืน 503 ไม่ข้ามการตรวจสิทธิ์
 
-Production บน Netlify/Render ใช้ PROXY_MODE=netlify และ PROXY_SECRET เดียวกันทั้งสองฝั่ง เพื่อให้ IP มาจาก Netlify Edge ที่ยืนยันได้ ไม่เชื่อ X-Forwarded-For จาก Browser
+Production ใช้ Render โดยตรง ตั้ง TRUST_PROXY_HOPS=1 ตาม Render Load Balancer และตรวจ Client IP จริงก่อนเปิดระบบ Local ใช้ 0 ไม่เชื่อ Header x-shorturl-client-ip จากผู้เรียก
 
 ## Authentication
 
 - Password เป็น salted scrypt hash รหัสใหม่อย่างน้อย 10 ตัว
-- Access JWT อายุเริ่มต้น 15 นาทีใน HttpOnly cookie path /api; Refresh cookie path /api/auth อายุสูงสุดเริ่มต้น 7 วัน
-- SameSite=Strict และ Secure เมื่อ NODE_ENV=production ไม่ส่ง token ให้ React เก็บใน localStorage
-- Redis เก็บ refresh hash มี atomic rotation/reuse detection และ absolute expiry
-- Protected request ตรวจบัญชีล่าสุดและ Redis family; เปลี่ยนสิทธิ์/สถานะ/รหัสผ่านเพิ่ม auth_version เพื่อยกเลิก session เก่า
-- คำขอเขียนใช้ Origin/JSON guard และ rate limit ตามประเภทงาน
-- หลัง Admin reset password ต้องเปลี่ยนรหัสชั่วคราวก่อนใช้ส่วนอื่น
-- Bootstrap Admin หลักผ่าน CLI เท่านั้น รันซ้ำไม่เปลี่ยนรหัสเดิม บัญชีหลักลดสิทธิ์/ระงับ/ลบไม่ได้
+- Login/Register คืน `{user, accessToken, expiresAt}`; JWT เริ่มต้น 15 นาที เก็บเฉพาะหน่วยความจำใน React
+- Protected API ใช้ Authorization: Bearer เท่านั้น ไม่อ่าน Cookie และไม่มี Refresh Endpoint
+- Redis เก็บ Session ID, User ID, Auth Version และหมดอายุพร้อม JWT ไม่เก็บ Refresh Token
+- Logout ยกเลิก Session ผ่าน JWT ที่ยืนยันแล้ว; เปลี่ยน Role/ระงับ/Reset/เปลี่ยนรหัสผ่าน ทำให้สิทธิ์เก่าใช้ต่อไม่ได้
+- ตรวจ User ล่าสุดใน DB ทุก Request; Redis ล่มคืน 503 โดยไม่ข้ามสิทธิ์
+- CORS เฉพาะ APP_ORIGIN ซึ่งเป็น Origin ไม่มี Repository Path; Preflight อนุญาต Authorization, Content-Type และ Idempotency-Key
+- คำขอเขียนตรวจ Origin/JSON และใช้ Redis Rate Limit ตามประเภทงาน
+- รีเฟรช/ปิดแท็บหรือ Token หมดอายุ ต้อง Login ใหม่ ไม่มี Token ใน localStorage/sessionStorage
+- Admin หลักลดสิทธิ์ ระงับ หรือลบไม่ได้; รหัสชั่วคราวต้องเปลี่ยนก่อนใช้งาน
 
 ## API หลัก
 
@@ -95,10 +97,9 @@ Production บน Netlify/Render ใช้ PROXY_MODE=netlify และ PROXY_SE
 | GET /api/health | Liveness ไม่ใช่ DB/Redis readiness |
 | POST /api/auth/register | สมัคร Email/Password และสร้าง session |
 | POST /api/auth/login | เข้าสู่ระบบ |
-| POST /api/auth/refresh | หมุน refresh token |
-| POST /api/auth/logout | ยกเลิก session และล้าง cookie |
+| POST /api/auth/logout | ยกเลิก Bearer session |
 | GET /api/auth/me | บัญชีปัจจุบัน |
-| POST /api/auth/change-password | ยืนยันรหัสเดิม เปลี่ยนรหัสใหม่ ล้าง session cookies |
+| POST /api/auth/change-password | ยืนยันรหัสเดิม เปลี่ยนรหัสใหม่ และยกเลิกสิทธิ์เดิม |
 | GET /api/users/me | Current user ผ่าน users module |
 | POST /api/links | originalUrl และ customCode แบบไม่บังคับ |
 | GET /api/links | ประวัติเฉพาะเจ้าของ search/filter/sort/page |
@@ -146,4 +147,4 @@ Migration 018 ยกเลิก Cron shorturl-admin-audit-retention และ M
 
 - ไม่มี Google Login, email verification หรือ self-service password recovery ทางอีเมล
 - DFD/ERD และ docs/design ยังไม่ตรง implementation ล่าสุด
-- Deployment, HTTPS/proxy, cookies และ QR จากอุปกรณ์จริงต้องทดสอบบน Hosting
+- Deployment, HTTPS/CORS, Bearer session และ QR จากอุปกรณ์จริงต้องทดสอบบน Hosting
